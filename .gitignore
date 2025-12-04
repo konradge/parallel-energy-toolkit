@@ -1,1 +1,4 @@
 parallel
+*.out
+rapl_monitor
+.vscode

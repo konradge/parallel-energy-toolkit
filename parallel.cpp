@@ -15,39 +15,77 @@
 #include <chrono>       // for std::chrono
 #include <malloc.h>
 #include "msr_reader.h"
+#include <sched.h>
+#include <assert.h>
+
+int pin_to_thread() {
+    auto core_id = sched_getcpu();
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(core_id, &cpuset);
+    int rc = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+
+    if (rc != 0) {
+        std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n";
+    }
+    return core_id;
+}
+
+class Args {
+    public:
+    long start;
+    long end;
+};
+
+typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+typedef std::chrono::duration<double> duration;
 
 class ThreadResult {
     public:
     long long result;
-    std::chrono::duration<double> time;
-    double energy;
+    time_point start_time;
+    time_point end_time;
+    double start_energy;
+    double end_energy;
+
+    int core_id;
+
+    duration time() const {
+        return end_time - start_time;
+    }
+
+    double energy() const {
+        return end_energy - start_energy;
+    }
 };
 
+std::mutex iomutex;
 ThreadResult calculate(int start, int end) {
     ThreadResult result;
+
+    result.core_id = pin_to_thread();
     long long sum = 0;
 
-    // auto thread_id = std::this_thread::get_id();
-    auto core_id = sched_getcpu();
-
-    auto start_time = std::chrono::high_resolution_clock::now();
-    double start_energy = read_intel_msr(core_id);
+    result.start_time = std::chrono::high_resolution_clock::now();
+    result.start_energy = read_intel_msr(result.core_id);
     
     // Expensive parallelized computation
-    for (int i = start; i < end; ++i) {
+    for (int i = 0; i < end-start; i++) {
         result.result += sqrt(i) * 10 + sin(i + 1) * cos(i - 3) * tan(i / 2.0);
     }
 
+    result.end_time = std::chrono::high_resolution_clock::now();
+    result.end_energy = read_intel_msr(result.core_id);
+    result.result = sum;
+
     auto final_core_id = sched_getcpu();
 
-    std::cout << "Thread on core " << core_id << " finished on core " << final_core_id << std::endl;
+    assert(result.core_id == sched_getcpu() && "Thread did run on multiple cores!");
 
-    auto end_time = std::chrono::high_resolution_clock::now();
-    double end_energy = read_intel_msr(core_id);
+    iomutex.lock();
+    // std::cout << "Thread on core " << result.core_id << " finished on core " << final_core_id << std::endl;
+    iomutex.unlock();
 
-    result.time = end_time - start_time;
-    result.energy = end_energy - start_energy;
-    result.result = sum;
     return result;
 }
 
@@ -76,16 +114,43 @@ int main(int argc, char* argv[]) {
         results[i] = threads[i].get();
     }
     auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end_time - start_time;
+    duration elapsed = end_time - start_time;
 
     long long total_sum = 0;
-    std::chrono::duration<double> max_elapsed_children = std::chrono::duration<double>::zero();
+    duration max_elapsed_children = duration::zero();
     double energy_children = 0.0;
+
+    std::unordered_map<int, std::vector<ThreadResult>> result_by_core;
     for (const auto& result : results) {
-        total_sum += result.result;
-        max_elapsed_children = std::max(max_elapsed_children, result.time);
-        energy_children += result.energy;
+        if(result_by_core.find(result.core_id) == result_by_core.end()) {
+            result_by_core[result.core_id] = std::vector<ThreadResult>();
+        }
+        result_by_core[result.core_id].push_back(result);
     }
+
+    for(const auto& [core_id, core_results] : result_by_core) {
+        // auto results = core_results;
+        // std::sort(results.begin(), results.end(), [](const ThreadResult& a, const ThreadResult& b) {
+        //     return a.start_time < b.start_time;
+        // });
+        duration time = duration::zero();
+        double energy = 0.0;
+        for(size_t i = 0; i < core_results.size(); i++) {
+            time.operator+=(core_results[i].time());
+            energy += core_results[i].energy();
+        }
+        std::cout << "Core " << core_id << " results: \n";
+        std::cout << "Total time: " << time.count() << " s";
+        std::cout << ", Total energy: " << energy << " J\n";
+        for(const auto& result : core_results) {
+            std::cout << "Start time: " << std::chrono::duration_cast<std::chrono::milliseconds>(result.start_time.time_since_epoch()).count() << " ms, "
+                      << "End time: " << std::chrono::duration_cast<std::chrono::milliseconds>(result.end_time.time_since_epoch()).count() << " ms, "
+                      << "Duration: " << result.time().count() << " s, "
+                      << "Energy: " << result.energy() << " J, "
+                      << "Result: " << result.result << "\n";
+    }
+    std::cout << std::endl << std::endl;
+}
 
     return 0;
 }
