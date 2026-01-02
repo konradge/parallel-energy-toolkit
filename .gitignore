@@ -2,3 +2,5 @@ parallel
 *.out
 rapl_monitor
 .vscode
+*.csv
+*.png

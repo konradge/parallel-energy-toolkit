@@ -1,9 +1,9 @@
 ## Compile
 ```
-g++ -O0 -o parallel parallel.cpp msr_reader.c
+g++ -O0 -o parallel msr_reader.c monte_carlo.cpp
 ```
 
 ## Run
 ```
-sudo ./parallel 100000000 8  
+sudo ./parallel 10000 4  
 ```
