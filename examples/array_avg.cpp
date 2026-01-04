@@ -13,7 +13,7 @@
 size_t array_size = 1000000000;
 int* array;
 
-long long core_function(size_t thread_number, size_t total_threads) {
+long long thread_function(size_t thread_number, size_t total_threads) {
   size_t chunk_start = (array_size / total_threads) * thread_number;
   size_t chunk_end = (thread_number == total_threads - 1)
                          ? array_size
@@ -27,7 +27,7 @@ long long core_function(size_t thread_number, size_t total_threads) {
 }
 
 // function to combine results
-void reduce(size_t thread_count, long long partial_result, double& total) {
+void combine_function(size_t thread_count, long long partial_result, double& total) {
   total += (double) partial_result / array_size;
 }
 
@@ -57,8 +57,8 @@ int* create_random_int_vector(int n, int min_val, int max_val) {
 int main(int argc, char* argv[]) {
   array = create_random_int_vector(array_size, 1, 100);
   std::cout << "Start benchmarking..." << std::endl;
-  benchmark(core_function, reduce, 20, 16);
-  auto res = run(core_function, reduce, 8);
+  benchmark(thread_function, combine_function, 20, 16);
+  auto res = run(thread_function, combine_function, 8);
   std::cout << "Average is: " << std::setprecision(10) << res << std::endl;
   return 0;
 }

@@ -18,10 +18,8 @@
 #include <thread>
 #include <vector>
 
+#include "measurement.hpp"
 #include "msr_reader.h"
-#include "parallel_utils.hpp"
-#include "single_benchmark.hpp"
-#include "thread_result.hpp"
 
 template <typename PartialResultT>
 using ThreadFunctionT = PartialResultT (*)(size_t thread_id,
@@ -111,62 +109,88 @@ ResultT run(ThreadFunctionT<PartialResultT> thread_function,
   return res;
 }
 
+template <typename PartialResultT>
+struct ThreadMeasurementWithResult : public TimeEnergyMeasurement {
+  PartialResultT result;
+};
+
+template <typename PartialResultT>
+ThreadMeasurementWithResult<PartialResultT> measure_and_calculate(
+    ThreadFunctionT<PartialResultT> thread_function, size_t thread_id,
+    size_t thread_count) {
+  ThreadMeasurementWithResult<PartialResultT> measurement;
+  measurement.start();
+  measurement.result = thread_function(thread_id, thread_count);
+  measurement.stop();
+  return measurement;
+}
+
 template <typename PartialResultT, typename ResultT>
 BenchmarkResult _benchmark(
     ThreadFunctionT<PartialResultT> thread_function,
     CombineFunctionT<PartialResultT, ResultT> combine_function,
     size_t thread_count) {
   // start threads
-  std::vector<std::future<ThreadResult<PartialResultT>>> threads;
+  std::vector<std::future<ThreadMeasurementWithResult<PartialResultT>>> threads;
   threads.reserve(thread_count);
-  auto start_time = std::chrono::high_resolution_clock::now();
+  TimeMeasurement parent_time;
+  parent_time.start();
 
   for (size_t thread = 0; thread < thread_count; thread++) {
-    threads.push_back(std::async(calculate<PartialResultT>, thread_function,
-                                 thread, thread_count));
+    threads.push_back(std::async(measure_and_calculate<PartialResultT>,
+                                 thread_function, thread, thread_count));
   }
 
-  // read results (synchronously wait for threads)
-  std::vector<ThreadResult<PartialResultT>> results(threads.size());
+  // wait for results
+  std::vector<ThreadMeasurementWithResult<PartialResultT>> results(
+      threads.size());
   ResultT res;
   for (size_t i = 0; i < threads.size(); i++) {
     results[i] = threads[i].get();
+  }
 
+  TimeEnergyMeasurement combine_energy;
+  combine_energy.start();
+  for (size_t i = 0; i < results.size(); i++) {
     // reduce to final result (dicard for benchmark)
     combine_function(thread_count, results[i].result, res);
   }
-
-  auto end_time = std::chrono::high_resolution_clock::now();
-  duration elapsed = end_time - start_time;
+  combine_energy.stop();
+  parent_time.stop();
 
   BenchmarkResult benchmark_result;
   // Since the parent thread takes the longest time, we use its time as the
   // total runtime
-  benchmark_result.runtime = elapsed.count();
+  benchmark_result.runtime = parent_time.time();
+  // Only the energy of the combine phase is measured here, the energy of the
+  // dispatching of the threads can not reliably be measured
+  benchmark_result.energy = combine_energy.energy();
 
   // Group thread results by core they were calculated on
-  std::unordered_map<int, std::vector<ThreadResult<PartialResultT>>>
+  std::unordered_map<int,
+                     std::vector<ThreadMeasurementWithResult<PartialResultT>>>
       result_by_core;
   for (const auto& result : results) {
     if (result_by_core.find(result.core_id) == result_by_core.end()) {
       result_by_core[result.core_id] =
-          std::vector<ThreadResult<PartialResultT>>();
+          std::vector<ThreadMeasurementWithResult<PartialResultT>>();
     }
     result_by_core[result.core_id].push_back(result);
   }
 
   for (const auto& [core_id, core_results] : result_by_core) {
     // sort core_results by start_time
-    std::vector<ThreadResult<PartialResultT>> sorted_core_results =
-        core_results;
+    std::vector<ThreadMeasurementWithResult<PartialResultT>>
+        sorted_core_results = core_results;
     std::sort(sorted_core_results.begin(), sorted_core_results.end(),
-              [](const ThreadResult<PartialResultT>& a,
-                 const ThreadResult<PartialResultT>& b) {
+              [](const ThreadMeasurementWithResult<PartialResultT>& a,
+                 const ThreadMeasurementWithResult<PartialResultT>& b) {
                 return a.start_time < b.start_time;
               });
     duration core_time = duration::zero();
     double core_energy = 0.0;
-    ThreadResult<PartialResultT> last_result = sorted_core_results[0];
+    ThreadMeasurementWithResult<PartialResultT> last_result =
+        sorted_core_results[0];
     double start_energy = last_result.start_energy;
     double end_energy = last_result.end_energy;
     auto start_time = last_result.start_time;
