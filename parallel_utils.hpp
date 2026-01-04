@@ -23,9 +23,8 @@ int pin_to_thread() {
   return core_id;
 }
 
-template <typename InputT, typename PartialResultT>
-ThreadResult<PartialResultT> calculate(PartialResultT calc(InputT),
-                                       InputT input) {
+template <typename PartialResultT>
+ThreadResult<PartialResultT> calculate(PartialResultT calc(size_t thread_id, size_t thread_count), size_t thread_id, size_t thread_count) {
   ThreadResult<PartialResultT> result;
 
   result.core_id = pin_to_thread();
@@ -34,7 +33,7 @@ ThreadResult<PartialResultT> calculate(PartialResultT calc(InputT),
   result.start_energy = read_intel_msr(result.core_id);
 
   // calculate
-  PartialResultT result_value = calc(input);
+  PartialResultT result_value = calc(thread_id, thread_count);
 
   result.end_time = std::chrono::high_resolution_clock::now();
   result.end_energy = read_intel_msr(result.core_id);

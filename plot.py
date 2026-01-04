@@ -1,35 +1,33 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# 1. Load the data
-# skipinitialspace=True fixes the "KeyError: 'energy'" by ignoring spaces after commas
-df = pd.read_csv('benchmark_results.csv', skipinitialspace=True)
+# Load the data
+df = pd.read_csv('benchmark_results.csv')
 
-# 2. Use a nice style
-plt.style.use('bmh')
+# Calculate Runtime * Energy (Energy-Delay Product)
+df['runtime_energy'] = df['runtime'] * df['energy']
 
-# 3. Create subplots
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+# Create subplots (1 row, 3 columns)
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
-# --- Plot Energy ---
-ax1.plot(df['iteration'], df['energy'], color='#2E86C1', linewidth=2, label='Total Energy')
-ax1.fill_between(df['iteration'], df['min_core_energy'], df['max_core_energy'], 
-                 color='#2E86C1', alpha=0.3, label='Core Range (Min-Max)')
-ax1.set_ylabel('Energy')
-ax1.set_title('Energy Consumption per Iteration')
-ax1.legend(loc='upper left')
+metrics = [
+    ('runtime', 'Runtime ($s$)', 'Runtime by Core Count'),
+    ('energy', 'Energy ($J$)', 'Energy Consumption by Core Count'),
+    ('runtime_energy', 'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Core Count')
+]
 
-# --- Plot Runtime ---
-ax2.plot(df['iteration'], df['runtime'], color='#E74C3C', linewidth=2, label='Total Runtime')
-ax2.fill_between(df['iteration'], df['min_core_runtime'], df['max_core_runtime'], 
-                 color='#E74C3C', alpha=0.3, label='Core Range (Min-Max)')
-ax2.set_xlabel('Iteration')
-ax2.set_ylabel('Runtime (s)')
-ax2.set_title('Runtime per Iteration')
-ax2.legend(loc='upper left')
+for i, (col, ylabel, title) in enumerate(metrics):
+    # Draw boxplot
+    sns.boxplot(ax=axes[i], x='core_count', y=col, data=df, color='lightgray')
+   
+    # Add trend line connecting means
+    sns.pointplot(ax=axes[i], x='core_count', y=col, data=df, estimator='mean', 
+                  color='red', errorbar=None, markers='o', linestyles='-')
+    
+    axes[i].set_title(title)
+    axes[i].set_xlabel('Core Count')
+    axes[i].set_ylabel(ylabel)
 
-# 4. Save the plot instead of showing it to avoid server errors
 plt.tight_layout()
-plt.savefig('energy_plot.png', dpi=300)
-
-print("Plot saved successfully as 'energy_plot.png'")
+plt.savefig('benchmark_trends.png')

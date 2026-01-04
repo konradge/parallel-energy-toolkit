@@ -4,3 +4,4 @@ rapl_monitor
 .vscode
 *.csv
 *.png
+.venv
