@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the data
-df = pd.read_csv('benchmark_results.csv')
+df = pd.read_csv('monte_carlo_performance.csv')
 
 # Calculate Runtime * Energy (Energy-Delay Product)
 df['runtime_energy'] = df['runtime'] * df['energy']

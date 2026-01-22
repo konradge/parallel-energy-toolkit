@@ -5,9 +5,12 @@
 
 #include <cassert>
 #include <iostream>
+#include <sys/sysinfo.h>
 
-int pin_to_thread() {
-  auto core_id = sched_getcpu();
+int pin_to_thread(size_t thread_id) {
+  // auto core_id = sched_getcpu();
+  auto core_id = thread_id % get_nprocs();
+  auto core_count = get_nprocs();
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
   CPU_SET(core_id, &cpuset);
@@ -15,6 +18,9 @@ int pin_to_thread() {
 
   if (rc != 0) {
     std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n";
+  } else if(core_id != sched_getcpu()) {
+    std::cerr << "Warning: Thread not running on the expected core " << core_id
+              << " but on core " << sched_getcpu() << "\n";
   }
   return core_id;
 }
@@ -23,9 +29,9 @@ void TimeMeasurement::start() {
   this->start_time = std::chrono::high_resolution_clock::now();
 }
 
-void TimeEnergyMeasurement::start() {
+void TimeEnergyMeasurement::start(int thread_id) {
   TimeMeasurement::start();
-  this->core_id = pin_to_thread();
+  this->core_id = pin_to_thread(thread_id);
   this->start_energy = read_intel_msr(this->core_id);
 }
 

@@ -8,9 +8,10 @@
 #include <thread>
 #include <vector>
 
-#include "../parallel.hpp"
+#include "../src/parallel.hpp"
+#include "utils.hpp"
 
-int precision = 10000000;
+int precision = 20000000;
 
 double core_function(size_t thread_number, size_t total_threads) {
   std::random_device rd;
@@ -31,14 +32,10 @@ double core_function(size_t thread_number, size_t total_threads) {
   return 4.0 * hits / iterations;
 }
 
-// function to combine results
-void reduce(size_t thread_count, double partial_result, double& total) {
-  total += partial_result / thread_count;
-}
 
 int main(int argc, char* argv[]) {
-  benchmark(core_function, reduce, 20, 16);
-    auto res = run(core_function, reduce, 8);
+  benchmark(core_function, average, 20, 16, argv[1]);
+    auto res = run(core_function, average, 8);
     std::cout << "Estimated Pi: " << std::setprecision(10) << res <<
     std::endl;
   return 0;

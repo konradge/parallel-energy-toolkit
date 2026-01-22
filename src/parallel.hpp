@@ -41,7 +41,7 @@ using CombineFunctionT = void (*)(size_t thread_count,
 template <typename PartialResultT, typename ResultT = PartialResultT>
 void benchmark(ThreadFunctionT<PartialResultT> thread_function,
                CombineFunctionT<PartialResultT, ResultT> combine_function,
-               size_t sample_size, size_t max_threads);
+               size_t sample_size, size_t max_threads, std::string output_file_name);
 
 template <typename PartialResultT, typename ResultT = PartialResultT>
 ResultT run(ThreadFunctionT<PartialResultT> thread_function,
@@ -50,7 +50,9 @@ ResultT run(ThreadFunctionT<PartialResultT> thread_function,
 
 struct BenchmarkResult {
   double runtime;
-  double energy;
+  double parallel_energy;
+  double combine_energy;
+  size_t distinct_used_cores;
 };
 template <typename PartialResultT, typename ResultT = PartialResultT>
 BenchmarkResult _benchmark(
@@ -65,14 +67,15 @@ BenchmarkResult _benchmark(
 template <typename PartialResultT, typename ResultT>
 void benchmark(ThreadFunctionT<PartialResultT> core_function,
                CombineFunctionT<PartialResultT, ResultT> combine_function,
-               size_t sample_size, size_t max_cores) {
+               size_t sample_size, size_t max_cores, std::string output_file_name) {
   std::cout << "Warm up..." << std::endl;
   // Warm up on (hopefully) all cores
   for (size_t i = 0; i < 10; i++) {
     run(core_function, combine_function, max_cores);
   }
-  std::ofstream output_file("benchmark_results.csv");
-  output_file << "core_count,runtime,energy\n";
+  std::ofstream output_file(output_file_name);
+  output_file
+      << "core_count,distinct_cores,runtime,energy\n";
 
   for (size_t core_count = 2; core_count <= max_cores; core_count++) {
     for (size_t iteration = 0; iteration < sample_size; iteration++) {
@@ -81,8 +84,8 @@ void benchmark(ThreadFunctionT<PartialResultT> core_function,
                 << " cores" << std::endl;
       auto res = _benchmark(core_function, combine_function, core_count);
 
-      output_file << core_count << "," << res.runtime << "," << res.energy
-                  << "\n";
+      output_file << core_count << "," << res.distinct_used_cores << ","
+                  << res.runtime << "," << res.parallel_energy + res.combine_energy << "\n";
 
       // output_file << (i + 1) << ", " << benchmark.csv();
     }
@@ -119,7 +122,7 @@ ThreadMeasurementWithResult<PartialResultT> measure_and_calculate(
     ThreadFunctionT<PartialResultT> thread_function, size_t thread_id,
     size_t thread_count) {
   ThreadMeasurementWithResult<PartialResultT> measurement;
-  measurement.start();
+  measurement.start(thread_id);
   measurement.result = thread_function(thread_id, thread_count);
   measurement.stop();
   return measurement;
@@ -150,7 +153,7 @@ BenchmarkResult _benchmark(
   }
 
   TimeEnergyMeasurement combine_energy;
-  combine_energy.start();
+  combine_energy.start(0);
   for (size_t i = 0; i < results.size(); i++) {
     // reduce to final result (dicard for benchmark)
     combine_function(thread_count, results[i].result, res);
@@ -162,9 +165,9 @@ BenchmarkResult _benchmark(
   // Since the parent thread takes the longest time, we use its time as the
   // total runtime
   benchmark_result.runtime = parent_time.time();
-  // Only the energy of the combine phase is measured here, the energy of the
-  // dispatching of the threads can not reliably be measured
-  benchmark_result.energy = combine_energy.energy();
+  // The energy for dispatching the threads is not measured to to unreliability
+  benchmark_result.parallel_energy = 0;
+  benchmark_result.combine_energy = combine_energy.energy();
 
   // Group thread results by core they were calculated on
   std::unordered_map<int,
@@ -177,6 +180,7 @@ BenchmarkResult _benchmark(
     }
     result_by_core[result.core_id].push_back(result);
   }
+  benchmark_result.distinct_used_cores = result_by_core.size();
 
   for (const auto& [core_id, core_results] : result_by_core) {
     // sort core_results by start_time
@@ -229,7 +233,7 @@ BenchmarkResult _benchmark(
       core_time += (end_time - start_time);
     }
 
-    benchmark_result.energy += core_energy;
+    benchmark_result.parallel_energy += core_energy;
   }
 
   return benchmark_result;

@@ -1,7 +1,9 @@
 parallel
-*.out
 rapl_monitor
 .vscode
 *.csv
 *.png
 .venv
+energy-effi
+!benchmarks/*
+**.o
