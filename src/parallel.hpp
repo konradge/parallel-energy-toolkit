@@ -68,28 +68,30 @@ template <typename PartialResultT, typename ResultT>
 void benchmark(ThreadFunctionT<PartialResultT> core_function,
                CombineFunctionT<PartialResultT, ResultT> combine_function,
                size_t sample_size, size_t max_cores, std::string output_file_name) {
-  std::cout << "Warm up..." << std::endl;
   // Warm up on (hopefully) all cores
+  std::cout << "Warming up...\n";
   for (size_t i = 0; i < 10; i++) {
+    // std::cout << i << std::endl;
+    std::cout << "(1) Warmup: Iteration " << (i + 1) << " / " << 10 << "\r" << std::flush;
     run(core_function, combine_function, max_cores);
   }
+  std::cout << "\n";
   std::ofstream output_file(output_file_name);
   output_file
       << "core_count,distinct_cores,runtime,energy\n";
 
   for (size_t core_count = 2; core_count <= max_cores; core_count++) {
     for (size_t iteration = 0; iteration < sample_size; iteration++) {
-      std::cout << "Benchmark iteration " << (iteration + 1) << " / "
+      std::cout << "(2) Benchmark: Iteration " << (iteration + 1) << " / "
                 << sample_size << " on " << core_count << " / " << max_cores
-                << " cores" << std::endl;
+                << " threads\r" << std::flush;
       auto res = _benchmark(core_function, combine_function, core_count);
 
       output_file << core_count << "," << res.distinct_used_cores << ","
-                  << res.runtime << "," << res.parallel_energy + res.combine_energy << "\n";
-
-      // output_file << (i + 1) << ", " << benchmark.csv();
+                  << res.runtime << "," << res.parallel_energy + res.combine_energy << "\n" << std::flush;
     }
   }
+  std::cout << "\n";
 
   output_file.close();
 }

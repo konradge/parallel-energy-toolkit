@@ -1,9 +1,12 @@
+import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+csv_name = sys.argv[1]
+
 # Load the data
-df = pd.read_csv('monte_carlo_performance.csv')
+df = pd.read_csv(csv_name)
 
 # Calculate Runtime * Energy (Energy-Delay Product)
 df['runtime_energy'] = df['runtime'] * df['energy']
@@ -30,4 +33,4 @@ for i, (col, ylabel, title) in enumerate(metrics):
     axes[i].set_ylabel(ylabel)
 
 plt.tight_layout()
-plt.savefig('benchmark_trends.png')
+plt.savefig(csv_name.replace('.csv', '_plots.png'))

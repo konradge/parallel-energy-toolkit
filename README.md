@@ -2,8 +2,15 @@
 
 ## Quick-Start
 ```sh
-    make file=examples/prime_count.cpp build
+    # Compile
+    make file=examples/prime_count.cpp
+    # Run
     sudo ./energy-effi
+    # Activate python venv
+    source .venv/bin/activate
+    # Plot
+    python plot.py prime_count.csv
+    # Plot is in prime_count_plots.png
 ```
 The results of the measurement can be found in `out.csv`.
 
