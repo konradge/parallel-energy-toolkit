@@ -22,10 +22,10 @@ metrics = [
 
 for i, (col, ylabel, title) in enumerate(metrics):
     # Draw boxplot
-    sns.boxplot(ax=axes[i], x='core_count', y=col, data=df, color='lightgray')
+    sns.boxplot(ax=axes[i], x='thread_count', y=col, data=df, color='lightgray')
    
     # Add trend line connecting means
-    sns.pointplot(ax=axes[i], x='core_count', y=col, data=df, estimator='mean', 
+    sns.pointplot(ax=axes[i], x='thread_count', y=col, data=df, estimator='mean', 
                   color='red', errorbar=None, markers='o', linestyles='-')
     
     axes[i].set_title(title)

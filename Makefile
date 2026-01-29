@@ -1,11 +1,17 @@
-make: src/measurement.o src/msr_reader.o src/parallel.o $(file)
-	$(CXX) $(CXXFLAGS) src/measurement.o src/msr_reader.o src/parallel.o $(file) -o energy-effi
+make: ./out/measurement.o ./out/msr_reader.o ./out/parallel.o $(file)
+	$(CXX) $(CXXFLAGS) -O0 ./out/measurement.o ./out/msr_reader.o ./out/parallel.o $(file) -o ./out/$(basename $(notdir $(file)))
 
 run: make
-	sudo ./energy-effi $(args)
+	sudo ./out/$(basename $(notdir $(file))) $(args)
 
-src/measurement.o: src/measurement.cpp src/measurement.hpp
-	$(CXX) $(CXXFLAGS) -c src/measurement.cpp -o src/measurement.o
+./out/parallel.o: src/parallel.cpp src/parallel.hpp
+	$(CXX) $(CXXFLAGS) -c src/parallel.cpp -o ./out/parallel.o
 
-src/msr_reader.o: src/msr_reader.c src/msr_reader.h
-	$(CXX) $(CXXFLAGS) -c src/msr_reader.c -o src/msr_reader.o
+./out/measurement.o: src/measurement.cpp src/measurement.hpp
+	$(CXX) $(CXXFLAGS) -c src/measurement.cpp -o ./out/measurement.o
+
+./out/msr_reader.o: src/msr_reader.c src/msr_reader.h
+	$(CXX) $(CXXFLAGS) -c src/msr_reader.c -o ./out/msr_reader.o
+
+clean:
+	rm -f ./out/*

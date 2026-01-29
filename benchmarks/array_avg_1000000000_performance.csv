@@ -1,4 +1,4 @@
-core_count,distinct_cores,runtime,energy
+thread_count,distinct_threads,runtime,energy
 2,2,1.46758e+09,26.2532
 2,2,1.25534e+09,30.6342
 2,2,1.66143e+09,22.7911

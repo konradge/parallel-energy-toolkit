@@ -7,3 +7,4 @@ rapl_monitor
 energy-effi
 !benchmarks/*
 **.o
+out/*

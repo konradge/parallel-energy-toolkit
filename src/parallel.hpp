@@ -25,40 +25,57 @@ template <typename PartialResultT>
 using ThreadFunctionT = PartialResultT (*)(size_t thread_id,
                                            size_t total_threads);
 template <typename PartialResultT, typename ResultT = PartialResultT>
-using CombineFunctionT = void (*)(size_t thread_count,
-                                  PartialResultT partial_result,
-                                  ResultT& result);
+using ReduceFunctionT = void (*)(size_t thread_count,
+                                 PartialResultT partial_result,
+                                 ResultT& result);
 
 /**
- * Runs a benchmark with the given function
+ * Runs a benchmark with the given function, outputting the results to a CSV
+ * file.
  *
- * @param distribution_function Function to distribute work among cores
- * @param core_function Function to be executed on each core
+ * @param thread_function Function to be executed in parallel
  * @param reduce_function Function to combine results from each core
- * @param sample_size Number of benchmark iterations
- * @param max_threads Maximum number of threads to use
+ * @param sample_size Number of benchmark iterations for each thread count
+ * @param max_thread_count Maximum number of threads to use. The program will
+ * then be executed with 2..max_thread_count threads.
+ * @param output_file_name Name of the CSV file to write the results to. The
+ * format is (thread_count,distinct_threads,runtime,energy) where
+ * `distinct_threads` is the number of distinct physical threads used.
  */
 template <typename PartialResultT, typename ResultT = PartialResultT>
 void benchmark(ThreadFunctionT<PartialResultT> thread_function,
-               CombineFunctionT<PartialResultT, ResultT> combine_function,
-               size_t sample_size, size_t max_threads, std::string output_file_name);
+               ReduceFunctionT<PartialResultT, ResultT> reduce_function,
+               size_t sample_size, size_t max_thread_count,
+               std::string output_file_name);
 
+/**
+ * Runs the given function in parallel using the specified number of threads.
+ *
+ * @param thread_function Function to be executed in parallel
+ * @param reduce_function Function to combine results from each core
+ * @param thread_count Number of threads to use
+ * @return The combined result from all threads
+ */
 template <typename PartialResultT, typename ResultT = PartialResultT>
 ResultT run(ThreadFunctionT<PartialResultT> thread_function,
-            CombineFunctionT<PartialResultT, ResultT> combine_function,
+            ReduceFunctionT<PartialResultT, ResultT> reduce_function,
             size_t thread_count);
 
 struct BenchmarkResult {
   double runtime;
   double parallel_energy;
   double combine_energy;
-  size_t distinct_used_cores;
+  size_t distinct_used_machine_threads;
 };
 template <typename PartialResultT, typename ResultT = PartialResultT>
-BenchmarkResult _benchmark(
+BenchmarkResult _single_benchmark(
     ThreadFunctionT<PartialResultT> core_function,
-    CombineFunctionT<PartialResultT, ResultT> combine_function,
-    size_t core_count);
+    ReduceFunctionT<PartialResultT, ResultT> reduce_function,
+    size_t thread_count);
+
+double _calculate_energy_consumptions(
+    std::vector<TimeEnergyMeasurement*> results,
+    size_t& distinct_used_machine_threads);
 
 /**
  * --------------- Implementations ---------------
@@ -66,29 +83,34 @@ BenchmarkResult _benchmark(
 
 template <typename PartialResultT, typename ResultT>
 void benchmark(ThreadFunctionT<PartialResultT> core_function,
-               CombineFunctionT<PartialResultT, ResultT> combine_function,
-               size_t sample_size, size_t max_cores, std::string output_file_name) {
+               ReduceFunctionT<PartialResultT, ResultT> reduce_function,
+               size_t sample_size, size_t max_thread_count,
+               std::string output_file_name) {
   // Warm up on (hopefully) all cores
   std::cout << "Warming up...\n";
   for (size_t i = 0; i < 10; i++) {
     // std::cout << i << std::endl;
-    std::cout << "(1) Warmup: Iteration " << (i + 1) << " / " << 10 << "\r" << std::flush;
-    run(core_function, combine_function, max_cores);
+    std::cout << "(1) Warmup: Iteration " << (i + 1) << " / " << 10 << "\r"
+              << std::flush;
+    run(core_function, reduce_function, max_thread_count);
   }
   std::cout << "\n";
   std::ofstream output_file(output_file_name);
-  output_file
-      << "core_count,distinct_cores,runtime,energy\n";
+  output_file << "thread_count,distinct_threads,runtime,energy\n";
 
-  for (size_t core_count = 2; core_count <= max_cores; core_count++) {
+  for (size_t thread_count = 2; thread_count <= max_thread_count;
+       thread_count++) {
     for (size_t iteration = 0; iteration < sample_size; iteration++) {
       std::cout << "(2) Benchmark: Iteration " << (iteration + 1) << " / "
-                << sample_size << " on " << core_count << " / " << max_cores
-                << " threads\r" << std::flush;
-      auto res = _benchmark(core_function, combine_function, core_count);
+                << sample_size << " on " << thread_count << " / "
+                << max_thread_count << " threads\r" << std::flush;
+      auto res =
+          _single_benchmark(core_function, reduce_function, thread_count);
 
-      output_file << core_count << "," << res.distinct_used_cores << ","
-                  << res.runtime << "," << res.parallel_energy + res.combine_energy << "\n" << std::flush;
+      output_file << thread_count << "," << res.distinct_used_machine_threads
+                  << "," << res.runtime << ","
+                  << res.parallel_energy + res.combine_energy << "\n"
+                  << std::flush;
     }
   }
   std::cout << "\n";
@@ -98,7 +120,7 @@ void benchmark(ThreadFunctionT<PartialResultT> core_function,
 
 template <typename PartialResultT, typename ResultT>
 ResultT run(ThreadFunctionT<PartialResultT> thread_function,
-            CombineFunctionT<PartialResultT, ResultT> combine_function,
+            ReduceFunctionT<PartialResultT, ResultT> reduce_function,
             size_t thread_count) {
   std::vector<std::future<PartialResultT>> threads;
   threads.reserve(thread_count);
@@ -109,7 +131,7 @@ ResultT run(ThreadFunctionT<PartialResultT> thread_function,
   }
 
   for (size_t i = 0; i < threads.size(); i++) {
-    combine_function(thread_count, threads[i].get(), res);
+    reduce_function(thread_count, threads[i].get(), res);
   }
   return res;
 }
@@ -131,34 +153,37 @@ ThreadMeasurementWithResult<PartialResultT> measure_and_calculate(
 }
 
 template <typename PartialResultT, typename ResultT>
-BenchmarkResult _benchmark(
+BenchmarkResult _single_benchmark(
     ThreadFunctionT<PartialResultT> thread_function,
-    CombineFunctionT<PartialResultT, ResultT> combine_function,
+    ReduceFunctionT<PartialResultT, ResultT> reduce_function,
     size_t thread_count) {
-  // start threads
   std::vector<std::future<ThreadMeasurementWithResult<PartialResultT>>> threads;
   threads.reserve(thread_count);
   TimeMeasurement parent_time;
   parent_time.start();
 
+  // 1. launch threads
   for (size_t thread = 0; thread < thread_count; thread++) {
     threads.push_back(std::async(measure_and_calculate<PartialResultT>,
                                  thread_function, thread, thread_count));
   }
 
-  // wait for results
+  // 2. wait for partial results
   std::vector<ThreadMeasurementWithResult<PartialResultT>> results(
       threads.size());
+  std::vector<TimeEnergyMeasurement*> results_ptrs(threads.size());
   ResultT res;
   for (size_t i = 0; i < threads.size(); i++) {
     results[i] = threads[i].get();
+    results_ptrs[i] = &results[i];
   }
 
+  // 3. reduce results
   TimeEnergyMeasurement combine_energy;
   combine_energy.start(0);
   for (size_t i = 0; i < results.size(); i++) {
     // reduce to final result (dicard for benchmark)
-    combine_function(thread_count, results[i].result, res);
+    reduce_function(thread_count, results[i].result, res);
   }
   combine_energy.stop();
   parent_time.stop();
@@ -171,72 +196,8 @@ BenchmarkResult _benchmark(
   benchmark_result.parallel_energy = 0;
   benchmark_result.combine_energy = combine_energy.energy();
 
-  // Group thread results by core they were calculated on
-  std::unordered_map<int,
-                     std::vector<ThreadMeasurementWithResult<PartialResultT>>>
-      result_by_core;
-  for (const auto& result : results) {
-    if (result_by_core.find(result.core_id) == result_by_core.end()) {
-      result_by_core[result.core_id] =
-          std::vector<ThreadMeasurementWithResult<PartialResultT>>();
-    }
-    result_by_core[result.core_id].push_back(result);
-  }
-  benchmark_result.distinct_used_cores = result_by_core.size();
-
-  for (const auto& [core_id, core_results] : result_by_core) {
-    // sort core_results by start_time
-    std::vector<ThreadMeasurementWithResult<PartialResultT>>
-        sorted_core_results = core_results;
-    std::sort(sorted_core_results.begin(), sorted_core_results.end(),
-              [](const ThreadMeasurementWithResult<PartialResultT>& a,
-                 const ThreadMeasurementWithResult<PartialResultT>& b) {
-                return a.start_time < b.start_time;
-              });
-    duration core_time = duration::zero();
-    double core_energy = 0.0;
-    ThreadMeasurementWithResult<PartialResultT> last_result =
-        sorted_core_results[0];
-    double start_energy = last_result.start_energy;
-    double end_energy = last_result.end_energy;
-    auto start_time = last_result.start_time;
-    auto end_time = last_result.end_time;
-    bool last_added = false;
-    for (size_t i = 1; i < core_results.size(); i++) {
-      auto current_result = sorted_core_results[i];
-      if (last_result.end_time > current_result.start_time) {
-        /**
-         * No overlap, take the energy at the end of the last result:
-         *
-         * <-----i-1----->
-         *                  <-----i----->
-         */
-        core_energy += last_result.end_energy - start_energy;
-        start_energy = current_result.start_energy;
-        core_time.operator+=(last_result.end_time - start_time);
-        start_time = current_result.end_time;
-        last_added = true;
-      } else {
-        /**
-         * Overlap, one of the following cases:
-         *
-         * <------i-1------>
-         *            <------i------->
-         * or:
-         * <------i-1----------->
-         *     <---i--->
-         */
-        end_time = std::max(end_time, current_result.end_time);
-        end_energy = std::max(end_energy, current_result.end_energy);
-      }
-    }
-    if (!last_added) {
-      core_energy += end_energy - start_energy;
-      core_time += (end_time - start_time);
-    }
-
-    benchmark_result.parallel_energy += core_energy;
-  }
+  benchmark_result.parallel_energy = _calculate_energy_consumptions(
+      results_ptrs, benchmark_result.distinct_used_machine_threads);
 
   return benchmark_result;
 }

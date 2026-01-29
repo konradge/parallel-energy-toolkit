@@ -8,9 +8,8 @@
 #include <sys/sysinfo.h>
 
 int pin_to_thread(size_t thread_id) {
-  // auto core_id = sched_getcpu();
-  auto core_id = thread_id % get_nprocs();
-  auto core_count = get_nprocs();
+  auto machine_thread_count = get_nprocs();
+  auto core_id = thread_id % machine_thread_count;
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
   CPU_SET(core_id, &cpuset);
