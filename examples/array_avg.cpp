@@ -24,8 +24,8 @@ int main(int argc, char* argv[]) {
   array_size = (argc > 1) ? std::stoul(argv[1]) : 400000000;
   std::cout << "Averaging array of size " << array_size << std::endl;
   array = create_random_int_vector(array_size, 1, 100);
-  benchmark(thread_function, average<long long>, 20, 16, "array_avg.csv");
-  auto res = run(thread_function, average<long long>, 8);
+  ParallelToolkit::benchmark(thread_function, average<long long>, 20, 16, "array_avg.csv");
+  auto res = ParallelToolkit::run(thread_function, average<long long>, 8);
   std::cout << "Average is: " << std::setprecision(10) << res << std::endl;
   return 0;
 }

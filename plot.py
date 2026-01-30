@@ -15,9 +15,9 @@ df['runtime_energy'] = df['runtime'] * df['energy']
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
 metrics = [
-    ('runtime', 'Runtime ($s$)', 'Runtime by Core Count'),
-    ('energy', 'Energy ($J$)', 'Energy Consumption by Core Count'),
-    ('runtime_energy', 'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Core Count')
+    ('runtime', r'Runtime ($s$)', 'Runtime by Core Count'),
+    ('energy', r'Energy ($J$)', 'Energy Consumption by Core Count'),
+    ('runtime_energy', r'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Core Count')
 ]
 
 for i, (col, ylabel, title) in enumerate(metrics):
@@ -33,4 +33,6 @@ for i, (col, ylabel, title) in enumerate(metrics):
     axes[i].set_ylabel(ylabel)
 
 plt.tight_layout()
-plt.savefig(csv_name.replace('.csv', '_plots.png'))
+png_file = csv_name.replace('.csv', '_plots.png')
+plt.savefig(png_file)
+print("Plots saved to", png_file)

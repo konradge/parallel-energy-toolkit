@@ -35,8 +35,8 @@ int calculate(size_t thread_number, size_t total_threads) {
 int main(int argc, char* argv[]) {
   max = (argc > 1) ? std::stoul(argv[1]) : 10000000;
   std::cout << "Calculating number of primes less than " << max << std::endl;
-  benchmark(calculate, sum, 20, 16, "prime_count.csv");
-  auto res = run(calculate, sum, 8);
+  ParallelToolkit::benchmark(calculate, sum, 20, 16, "prime_count.csv");
+  auto res = ParallelToolkit::run(calculate, sum, 8);
   printf("Number of primes less than %d is %d\n", max, res);
   return 0;
 }

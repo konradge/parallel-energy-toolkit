@@ -1,22 +1,37 @@
-# Measuring Energy-Efficiency of Parallel Programs
+# Parallel Energy Toolkit
 
-## Quick-Start
+A C++ toolkit designed to measure the trade-off between **execution time** and **energy consumption** in parallel programs. Built upon the principles of the [energy-toolkit](https://github.com/sse-labs/energy-toolkit), this tool helps developers answering the question of deciding, if using more threads for the workload is worth the potential cost of more energy.
+
+---
+
+## Quick Start
+
+Get the first benchmark running:
+
+> **Note:** Running energy benchmarks usually requires `sudo` to access RAPL register
+
 ```sh
-    # Compile
-    make file=examples/prime_count.cpp
-    # Run
-    sudo ./energy-effi
-    # Activate python venv
-    source .venv/bin/activate
-    # Plot
-    python plot.py prime_count.csv
-    # Plot is in prime_count_plots.png
-```
-The results of the measurement can be found in `out.csv`.
+# 1. Compile the example
+make file=examples/prime_count.cpp
 
-## Concept
-This programs allows for measuring the time- and energy-usage of parallel programs written in C++ while also providing a visualization.
-For this, it uses a variation of the [Map-Reduce-Framework](https://en.wikipedia.org/wiki/MapReduce):
+# 2. Run the benchmark (requires root for energy sensors)
+sudo ./out/prime_count
+
+# 3. Setup the visualization environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 4. Generate plots
+python plot.py prime_count.csv
+```
+The results will be available in `prime_count.csv` and visualized in `prime_count_plots.png`.
+
+---
+
+## Core Concept
+
+The toolkit uses a variant of the **Map-Reduce** framework optimized for shared-memory parallelism by working on a shard memory:
 
 ```mermaid
 graph LR
@@ -33,33 +48,57 @@ graph LR
     style A3 display: none;
     style D display: none;
 ```
-Each of the `Calculate`Functions, running in parallel can be assigned to a part of the whole task based on their thread-number. The `Reducer` waits for all calculations being finished to then combine the partial Results into a single one. Note, that no input-data is passed into each of the `Calculate` function, meaning that they need to access the data from some shared data-state. This was done to prevent the need of copying data resulting in more overhead.
 
-### Example: Array-Sum
-As an example, take the problem of summing over an array using 4 parallel workers. In this case, `Calculate` `i` takes the i'th fourth of the Array and calculate the sum over this sub-array. The Reducer would then sum up the results of the Calculators.
+1.  **Calculate (Map):** The task is split into $N$ threads. Each thread calculates a partial result based on its `thread_id`. Note, that memory accesses are handled by the programmer and use shared memory
+2.  **Reduce:** Once all threads finish, a reducer function aggregates those partial results into the final output.
 
-## Usage
+**Example: Array Summation**
+If summing an array with 4 threads, each "Calculator" handles 1/4th of the array. The "Reducer" then sums those four sub-totals.
 
-To measure another program besides the provided examples, one first needs to implement the three components, Mapper, Calculator and Reduce for this specific problem in C++. The templated signatures for this are as follows:
-```C++
-T calculate(size_t thread_number, size_t total_thread_number);
-T reduce(size_t total_thread_number, T partial_result, R final_result);
+---
+
+## Usage Guide
+
+### 1. Implementing the Logic
+To profile an algorithm, one must define two functions following these signatures:
+
+| Function | Signature | Purpose |
+| :--- | :--- | :--- |
+| **Calculate** | `T calculate(size_t id, size_t total)` | Performs the parallel workload. |
+| **Reduce** | `void reduce(size_t total, T partial, R& final)` | Combines a partial result into the final result. |
+
+### 2. Choosing the Execution Mode
+The `parallel.hpp` header provides two primary entry points:
+
+#### `run(...)`
+Executes the program once with a specific number of threads, which could be for example used for testing if the program outputs correct results:
+```cpp
+ResultT run(calculate_func, reduce_func, size_t max_threads);
 ```
 
-The header `parallel.hpp` provides two functions to be used:
-```C++
-ResultT run(
-    PartialResultT (*)(size_t thread_id, size_t total_threads) calculate,
-    void (*)(size_t thread_count, PartialResultT partial_result, ResultT& result) reduce,
-    size_t max_threads,
-);
+#### `benchmark(...)`
+It runs the program across a range of thread counts (from 2 up to `max_threads`), repeating the process for a `sample_size` to ensure statistical significance:
+```cpp
 void benchmark(
-    PartialResultT (*)(size_t thread_id, size_t total_threads) calculate,
-    void (*)(size_t thread_count, PartialResultT partial_result, ResultT& result) reduce,
-    size_t sample_size,
-    size_t max_threads,
+    calculate_func, // signature as above
+    reduce_func, // signature as above
+    size_t sample_size, 
+    size_t max_threads, 
     std::string output_file_name
 );
 ```
-where `calculate` and `reduce` match the signatures of the above functions. `run` can be called to execute the program on the given number of threads while retrieving the result.
-`benchmark` on the other side can be used to run benchmarks against the provided program. For this, it runs the program on 2 to `max_threads` threads, each for `sample_size` times, resulting in `(max_threads - 1) * sample_size` pairs of time- and energy-measurements. It writes the result in form of a CSV file into `output_file_name` to be used for visualizations.
+
+---
+
+## Visualization
+
+The provided `plot.py` script processes the CSV output to generate three key metrics:
+* **Execution Time:** How performance scales with threads.
+* **Energy Consumption:** Total Joules consumed per run.
+* **Energy-Delay Product (EDP):** Calculated as $Energy \times Time$. This is the "sweet spot" metric—the lower the EDP, the better this specific number of threads.
+
+```bash
+# In the venv
+python plot.py results.csv
+```
+---

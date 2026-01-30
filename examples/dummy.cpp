@@ -21,8 +21,8 @@ void reduce(size_t thread_count, size_t partial_result,
 }
 
 int main(int argc, char* argv[]) {
-  benchmark(calculate, reduce, 20, 16, "out.csv");
-  auto res = run(calculate, reduce, 8);
+  ParallelToolkit::benchmark(calculate, reduce, 20, 16, "out.csv");
+  auto res = ParallelToolkit::run(calculate, reduce, 8);
   std::cout << "Average is: " << std::setprecision(10) << res << std::endl;
   return 0;
 }

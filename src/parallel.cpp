@@ -1,6 +1,6 @@
 #include "parallel.hpp"
 
-double _calculate_energy_consumptions(
+double ParallelToolkit::_Internal::_calculate_energy_consumptions(
     std::vector<TimeEnergyMeasurement*> results,
     size_t& distinct_used_machine_threads) {
   double total_energy = 0;
