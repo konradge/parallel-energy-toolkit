@@ -8,16 +8,18 @@ csv_name = sys.argv[1]
 # Load the data
 df = pd.read_csv(csv_name)
 
+df["runtime_s"] = df["runtime_ns"] / 1e9  # Convert runtime to seconds
+
 # Calculate Runtime * Energy (Energy-Delay Product)
-df['runtime_energy'] = df['runtime'] * df['energy']
+df['runtime_energy'] = df['runtime_s'] * df['energy']
 
 # Create subplots (1 row, 3 columns)
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
 metrics = [
-    ('runtime', r'Runtime ($s$)', 'Runtime by Core Count'),
-    ('energy', r'Energy ($J$)', 'Energy Consumption by Core Count'),
-    ('runtime_energy', r'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Core Count')
+    ('runtime_s', r'Runtime ($s$)', 'Runtime by Thread Count'),
+    ('energy', r'Energy ($J$)', 'Energy Consumption by Thread Count'),
+    ('runtime_energy', r'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Thread Count')
 ]
 
 for i, (col, ylabel, title) in enumerate(metrics):

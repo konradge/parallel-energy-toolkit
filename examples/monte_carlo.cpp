@@ -34,9 +34,9 @@ double core_function(size_t thread_number, size_t total_threads) {
 
 
 int main(int argc, char* argv[]) {
-  precision = (argc > 1) ? std::stoul(argv[1]) : 20000000;
+  precision = (argc > 1) ? std::stoul(argv[1]) : 200000;
   std::cout << "Estimating Pi with 'precision'" << precision << std::endl;
-  ParallelToolkit::benchmark(core_function, average, 20, 16, "monte_carlo.csv");
+  ParallelToolkit::benchmark(core_function, average, 20, 16, "results/monte_carlo_" + std::to_string(precision) + ".csv");
     auto res = ParallelToolkit::run(core_function, average, 8);
     std::cout << "Estimated Pi: " << std::setprecision(10) << res <<
     std::endl;

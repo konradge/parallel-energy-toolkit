@@ -11,19 +11,12 @@ Get the first benchmark running:
 > **Note:** Running energy benchmarks usually requires `sudo` to access RAPL register
 
 ```sh
-# 1. Compile the example
-make file=examples/prime_count.cpp
-
-# 2. Run the benchmark (requires root for energy sensors)
-sudo ./out/prime_count
-
-# 3. Setup the visualization environment
+# 1. Prepare the Python environment
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt 
 
-# 4. Generate plots
-python plot.py prime_count.csv
+# 1. Run the example
+make file=examples/prime_count.cpp run args=20000
 ```
 The results will be available in `prime_count.csv` and visualized in `prime_count_plots.png`.
 

@@ -8,3 +8,4 @@ energy-effi
 !benchmarks/*
 **.o
 out/*
+!out/.gitkeep

@@ -10,18 +10,20 @@
 
 #include "../src/parallel.hpp"
 
-size_t calculate(size_t thread_number, size_t total_threads) {
-  return thread_number;
+int millis;
+
+void* calculate(size_t thread_number, size_t total_threads) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(millis));
+  return nullptr;
 }
 
 // function to combine results
-void reduce(size_t thread_count, size_t partial_result,
-                      double& result) {
-  result += (double)partial_result;
-}
+void reduce(size_t thread_count, void* partial_result,
+                      double& result) {}
 
 int main(int argc, char* argv[]) {
-  ParallelToolkit::benchmark(calculate, reduce, 20, 16, "out.csv");
+  millis = (argc > 1) ? std::stoul(argv[1]) : 100;
+  ParallelToolkit::benchmark(calculate, reduce, 1, 16, "results/sleep_" + std::to_string(millis) + ".csv");
   auto res = ParallelToolkit::run(calculate, reduce, 8);
   std::cout << "Average is: " << std::setprecision(10) << res << std::endl;
   return 0;

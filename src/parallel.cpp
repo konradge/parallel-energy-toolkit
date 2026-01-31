@@ -1,8 +1,14 @@
 #include "parallel.hpp"
 
-double ParallelToolkit::_Internal::_calculate_energy_consumptions(
-    std::vector<TimeEnergyMeasurement*> results,
-    size_t& distinct_used_machine_threads) {
+#include <algorithm>
+#include <unordered_map>
+
+#include "measurement.hpp"
+
+namespace ParallelToolkit {
+namespace detail {
+double calculate_total_energy(const std::vector<TimeEnergyMeasurement*>& results,
+                              size_t& distinct_used_machine_threads) {
   double total_energy = 0;
   /**
    * For measuring the consumed energy the results from each thread need to be
@@ -68,3 +74,5 @@ double ParallelToolkit::_Internal::_calculate_energy_consumptions(
 
   return total_energy;
 }
+}  // namespace detail
+}  // namespace ParallelToolkit

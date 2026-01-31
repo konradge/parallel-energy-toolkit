@@ -3,6 +3,7 @@ make: ./out/measurement.o ./out/msr_reader.o ./out/parallel.o $(file)
 
 run: make
 	sudo ./out/$(basename $(notdir $(file))) $(args)
+	.venv/bin/python plot.py results/$(basename $(notdir $(file)))_$(args).csv
 
 ./out/parallel.o: src/parallel.cpp src/parallel.hpp
 	$(CXX) $(CXXFLAGS) -c src/parallel.cpp -o ./out/parallel.o
