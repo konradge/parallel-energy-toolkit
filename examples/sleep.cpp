@@ -22,8 +22,8 @@ void reduce(size_t thread_count, void* partial_result,
                       double& result) {}
 
 int main(int argc, char* argv[]) {
-  millis = (argc > 1) ? std::stoul(argv[1]) : 100;
-  ParallelToolkit::benchmark(calculate, reduce, 1, 16, "results/sleep_" + std::to_string(millis) + ".csv");
+  millis = (argc > 1) ? std::stoul(argv[1]) : 1000;
+  ParallelToolkit::benchmark(calculate, reduce, 10, 16, "results/sleep_" + std::to_string(millis) + ".csv");
   auto res = ParallelToolkit::run(calculate, reduce, 8);
   std::cout << "Average is: " << std::setprecision(10) << res << std::endl;
   return 0;

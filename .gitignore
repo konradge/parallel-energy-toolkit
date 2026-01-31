@@ -9,3 +9,4 @@ energy-effi
 **.o
 out/*
 !out/.gitkeep
+__pycache__

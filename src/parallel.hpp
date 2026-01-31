@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 #include <numeric>
+#include <iomanip>
 
 #include "measurement.hpp"
 
@@ -88,7 +89,7 @@ void benchmark(ThreadFunc<PartialT> thread_func,
     
     std::cout << "Warming up on " << max_threads << " threads...\n";
     for (int i = 0; i < 10; ++i) {
-        std::cout << "\r(1/2) Warmup: Iteration " << (i + 1) << " / 10" << std::flush;
+        std::cout << "\r(1/2) Warmup: Iteration " << std::setfill(' ') << std::setw(2) << (i + 1) << " / 10" << std::flush;
         run(thread_func, reduce_func, max_threads);
     }
     std::cout << "\n";
@@ -168,8 +169,6 @@ detail::BenchmarkResult detail::run_single_benchmark(
     results.reserve(thread_count);
     for (auto& f : futures) {
         results.push_back(f.get());
-        std::cout << "Thread Energy (ID " << results.back().core_id << "): " 
-                  << results.back().energy() << " J\n";
     }
 
     // 3. Reduction Phase (Measured for energy)
@@ -181,7 +180,6 @@ detail::BenchmarkResult detail::run_single_benchmark(
         reduce_func(thread_count, res.value, final_val);
     }
     reduction_energy.stop();
-    std::cout << "Reduction Energy: " << reduction_energy.energy() << " J\n";
     parent_time.stop();
 
     // 4. Energy calculation needs pointers to the base class
