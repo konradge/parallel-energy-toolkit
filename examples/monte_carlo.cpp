@@ -13,14 +13,14 @@
 
 int precision = 20000000;
 
-double core_function(size_t thread_number, size_t total_threads) {
+double worker_function(size_t worker_number, size_t total_workers) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<double> dis(0.0, 1.0);
 
   long long hits = 0;
 
-  long long iterations = precision / total_threads;
+  long long iterations = precision / total_workers;
   for (long long i = 0; i < iterations; ++i) {
     double x = dis(gen);
     double y = dis(gen);
@@ -36,8 +36,8 @@ double core_function(size_t thread_number, size_t total_threads) {
 int main(int argc, char* argv[]) {
   precision = (argc > 1) ? std::stoul(argv[1]) : 200000;
   std::cout << "Estimating Pi with 'precision'" << precision << std::endl;
-  ParallelToolkit::benchmark(core_function, average, 20, 16, "results/monte_carlo_" + std::to_string(precision) + ".csv");
-    auto res = ParallelToolkit::run(core_function, average, 8);
+  ParallelToolkit::benchmark(worker_function, average, 20, 16, "results/monte_carlo_" + std::to_string(precision) + ".csv");
+    auto res = ParallelToolkit::run(worker_function, average, 8);
     std::cout << "Estimated Pi: " << std::setprecision(10) << res <<
     std::endl;
   return 0;

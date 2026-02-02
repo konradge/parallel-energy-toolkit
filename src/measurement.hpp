@@ -29,7 +29,7 @@ class TimeMeasurement {
 
 class TimeEnergyMeasurement : public TimeMeasurement {
  public:
-  void start(int thread_id);
+  void start(int worker_id);
   void stop();
   double energy() const {
     if (!stopped) {
@@ -41,5 +41,5 @@ class TimeEnergyMeasurement : public TimeMeasurement {
 
   double start_energy;
   double end_energy;
-  int core_id;
+  int thread_id;
 };

@@ -24,13 +24,13 @@ The results will be available in `prime_count.csv` and visualized in `prime_coun
 
 ## Core Concept
 
-The toolkit uses a variant of the **Map-Reduce** framework optimized for shared-memory parallelism by working on a shard memory:
+The toolkit uses a variant of the **Map-Reduce** framework optimized for shared-memory parallelism by working on a shared memory:
 
 ```mermaid
 graph LR
-    A1[ ] --> B1(Calculate)
-    A2[ ] --> B2(Calculate)
-    A3[ ] --> B3(Calculate)
+    A1[ ] --> B1(WorkerFunc)
+    A2[ ] --> B2(WorkerFunc)
+    A3[ ] --> B3(WorkerFunc)
     B1 --> C(Reducer)
     B2 --> C
     B3 --> C
@@ -42,11 +42,11 @@ graph LR
     style D display: none;
 ```
 
-1.  **Calculate (Map):** The task is split into $N$ threads. Each thread calculates a partial result based on its `thread_id`. Note, that memory accesses are handled by the programmer and use shared memory
-2.  **Reduce:** Once all threads finish, a reducer function aggregates those partial results into the final output.
+1.  **Calculate (Map):** The task is split into $N$ workers. Each worker calculates a partial result based on its `worker_id`. Note, that memory accesses are handled by the programmer and use shared memory
+2.  **Reduce:** Once all workers finish, a reducer function aggregates those partial results into the final output.
 
 **Example: Array Summation**
-If summing an array with 4 threads, each "Calculator" handles 1/4th of the array. The "Reducer" then sums those four sub-totals.
+If summing an array with 4 workers, each "Calculator" handles 1/4th of the array. The "Reducer" then sums those four sub-totals.
 
 ---
 
@@ -57,26 +57,26 @@ To profile an algorithm, one must define two functions following these signature
 
 | Function | Signature | Purpose |
 | :--- | :--- | :--- |
-| **Calculate** | `T calculate(size_t id, size_t total)` | Performs the parallel workload. |
-| **Reduce** | `void reduce(size_t total, T partial, R& final)` | Combines a partial result into the final result. |
+| **Calculate** | `T calculate(size_t worker_id, size_t total_workers)` | Performs the parallel workload. |
+| **Reduce** | `void reduce(size_t total_workers, T partial, R& final)` | Combines a partial result into the final result. |
 
 ### 2. Choosing the Execution Mode
 The `parallel.hpp` header provides two primary entry points:
 
 #### `run(...)`
-Executes the program once with a specific number of threads, which could be for example used for testing if the program outputs correct results:
+Executes the program once with a specific number of workers, which could be for example used for testing if the program outputs correct results:
 ```cpp
-ResultT run(calculate_func, reduce_func, size_t max_threads);
+ResultT run(worker_func, reduce_func, size_t workers_count);
 ```
 
 #### `benchmark(...)`
-It runs the program across a range of thread counts (from 2 up to `max_threads`), repeating the process for a `sample_size` to ensure statistical significance:
+It runs the program across a range of worker counts (from 2 up to `max_workers`), repeating the process for a `sample_size` to ensure statistical significance:
 ```cpp
 void benchmark(
-    calculate_func, // signature as above
+    worker_func, // signature as above
     reduce_func, // signature as above
     size_t sample_size, 
-    size_t max_threads, 
+    size_t max_workers, 
     std::string output_file_name
 );
 ```
@@ -86,9 +86,9 @@ void benchmark(
 ## Visualization
 
 The provided `plot.py` script processes the CSV output to generate three key metrics:
-* **Execution Time:** How performance scales with threads.
+* **Execution Time:** How performance scales with workers.
 * **Energy Consumption:** Total Joules consumed per run.
-* **Energy-Delay Product (EDP):** Calculated as $Energy \times Time$. This is the "sweet spot" metric—the lower the EDP, the better this specific number of threads.
+* **Energy-Delay Product (EDP):** Calculated as $Energy \times Time$. This is the "sweet spot" metric—the lower the EDP, the better this specific number of workers.
 
 ```bash
 # In the venv

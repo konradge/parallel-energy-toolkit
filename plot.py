@@ -23,21 +23,21 @@ df['runtime_energy'] = df['runtime_s'] * df['energy_without_noise']
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
 metrics = [
-    ('runtime_s', r'Runtime ($s$)', 'Runtime by Thread Count'),
-    ('energy_without_noise', r'Energy ($J$)', 'Energy Consumption by Thread Count'),
-    ('runtime_energy', r'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Thread Count')
+    ('runtime_s', r'Runtime ($s$)', 'Runtime by Worker Count'),
+    ('energy_without_noise', r'Energy ($J$)', 'Energy Consumption by Worker Count'),
+    ('runtime_energy', r'Energy-Delay Product ($J \cdot s$)', 'Runtime * Energy (EDP) by Worker Count')
 ]
 
 for i, (col, ylabel, title) in enumerate(metrics):
     # Draw boxplot
-    sns.boxplot(ax=axes[i], x='thread_count', y=col, data=df, color='lightgray')
+    sns.boxplot(ax=axes[i], x='worker_count', y=col, data=df, color='lightgray')
    
     # Add trend line connecting means
-    sns.pointplot(ax=axes[i], x='thread_count', y=col, data=df, estimator='mean', 
+    sns.pointplot(ax=axes[i], x='worker_count', y=col, data=df, estimator='mean', 
                   color='red', errorbar=None, markers='o', linestyles='-')
     
     axes[i].set_title(title)
-    axes[i].set_xlabel('Core Count')
+    axes[i].set_xlabel('Worker Count')
     axes[i].set_ylabel(ylabel)
 
 plt.tight_layout()

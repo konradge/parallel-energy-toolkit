@@ -20,10 +20,10 @@ double calculate_total_energy(const std::vector<TimeEnergyMeasurement*>& results
   // Group thread results by core they were calculated on
   std::unordered_map<int, std::vector<TimeEnergyMeasurement>> result_by_core;
   for (const auto& result : results) {
-    if (result_by_core.find(result->core_id) == result_by_core.end()) {
-      result_by_core[result->core_id] = std::vector<TimeEnergyMeasurement>();
+    if (result_by_core.find(result->thread_id) == result_by_core.end()) {
+      result_by_core[result->thread_id] = std::vector<TimeEnergyMeasurement>();
     }
-    result_by_core[result->core_id].push_back(*result);
+    result_by_core[result->thread_id].push_back(*result);
   }
   distinct_used_machine_threads = result_by_core.size();
 

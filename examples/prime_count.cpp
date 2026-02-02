@@ -21,10 +21,10 @@ bool is_prime(int n) {
   return true;
 }
 
-// Each thread is responsible for all numbers i = j * thread_number
-int calculate(size_t thread_number, size_t total_threads) {
+// Each worker is responsible for all numbers i = j * worker_number
+int worker_function(size_t worker_number, size_t total_workers) {
   int prime_count = 0;
-  for(int i = thread_number; i < max; i += total_threads) {
+  for(int i = worker_number; i < max; i += total_workers) {
     if(is_prime(i)) {
       prime_count++;
     }
@@ -35,8 +35,8 @@ int calculate(size_t thread_number, size_t total_threads) {
 int main(int argc, char* argv[]) {
   max = (argc > 1) ? std::stoul(argv[1]) : 200000;
   std::cout << "Calculating number of primes less than " << max << std::endl;
-  ParallelToolkit::benchmark(calculate, sum, 20, 16, "results/prime_count_" + std::to_string(max) + ".csv");
-  auto res = ParallelToolkit::run(calculate, sum, 8);
-  printf("Number of primes less than %d is %d\n", max, res);
+  ParallelToolkit::benchmark(worker_function, sum, 20, 16, "results/prime_count_" + std::to_string(max) + ".csv");
+  auto res = ParallelToolkit::run(worker_function, sum, 8);
+  printf("\nNumber of primes less than %d is %d\n", max, res);
   return 0;
 }
